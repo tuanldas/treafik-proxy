@@ -1,0 +1,172 @@
+# ============================================================
+# Alert rules cho Prometheus — host / container / traefik.
+# Prometheus eval mỗi 15s; alert chuyển firing sau 'for', đẩy sang Alertmanager.
+# Ngưỡng là điểm khởi đầu chuẩn community — chỉnh theo SLO thực tế.
+# ============================================================
+groups:
+  # ----------------------------------------------------------
+  # Host / Infrastructure (node-exporter) — chỉ đáng tin trên Linux thật
+  # ----------------------------------------------------------
+  - name: host
+    rules:
+      - alert: InstanceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Target {{ $labels.instance }} ({{ $labels.job }}) down"
+          description: "{{ $labels.job }} trên {{ $labels.instance }} không scrape được > 2 phút."
+
+      - alert: TargetMissing
+        expr: up == 0 unless on(job) (sum by (job) (up) == 0)
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Exporter {{ $labels.instance }} biến mất"
+          description: "Một target của job {{ $labels.job }} mất — exporter có thể crash."
+
+      - alert: HighMemory
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RAM thấp trên {{ $labels.instance }}"
+          description: "Còn < 10% RAM khả dụng (hiện {{ $value | printf \"%.1f\" }}%)."
+
+      - alert: DiskAlmostFull
+        expr: |
+          (node_filesystem_avail_bytes{fstype!~"^(fuse.*|tmpfs|cifs|nfs|overlay|squashfs)"}
+            / node_filesystem_size_bytes) * 100 < 10
+          and on (instance, device, mountpoint) node_filesystem_readonly == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Đĩa gần đầy trên {{ $labels.instance }}"
+          description: "{{ $labels.mountpoint }} còn < 10% ({{ $value | printf \"%.1f\" }}%)."
+
+      - alert: DiskWillFillSoon
+        expr: |
+          predict_linear(node_filesystem_avail_bytes{fstype!~"^(fuse.*|tmpfs|cifs|nfs|overlay|squashfs)"}[6h], 24*3600) <= 0
+          and node_filesystem_avail_bytes > 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Đĩa {{ $labels.mountpoint }} sẽ đầy trong 24h ({{ $labels.instance }})"
+          description: "Theo đà 6h gần nhất, {{ $labels.mountpoint }} hết chỗ trong < 24 giờ."
+
+      - alert: HostHighLoad
+        expr: 1 - (avg without (cpu) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 0.80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU cao trên {{ $labels.instance }}"
+          description: "CPU > 80% trong 10 phút (hiện {{ $value | printf \"%.0f\" }} tỉ lệ)."
+
+  # ----------------------------------------------------------
+  # Container (cAdvisor) — Docker thuần dùng nhãn 'name'
+  # ----------------------------------------------------------
+  - name: container
+    rules:
+      - alert: ContainerKilled
+        expr: time() - container_last_seen{name!=""} > 60
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} biến mất"
+          description: "cAdvisor không thấy {{ $labels.name }} > 60s (restart loop / bị kill)."
+
+      - alert: ContainerRestartLoop
+        expr: changes(container_last_seen{name!=""}[15m]) > 3
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} restart liên tục"
+          description: "{{ $labels.name }} khởi động lại > 3 lần / 15 phút."
+
+      - alert: ContainerHighMemory
+        expr: |
+          (container_memory_working_set_bytes{name!=""}
+            / (container_spec_memory_limit_bytes{name!=""} > 0)) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} sắp chạm memory limit"
+          description: "RAM {{ $labels.name }} > 90% limit ({{ $value | printf \"%.0f\" }}%) — nguy cơ OOM-kill."
+
+  # ----------------------------------------------------------
+  # Traefik (entrypoint metrics — phủ toàn bộ traffic vào)
+  # ----------------------------------------------------------
+  - name: traefik
+    rules:
+      - alert: Traefik5xxHigh
+        expr: |
+          sum(rate(traefik_entrypoint_requests_total{code=~"5.."}[5m])) by (entrypoint)
+            / sum(rate(traefik_entrypoint_requests_total[5m])) by (entrypoint) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Tỷ lệ 5xx cao ở entrypoint {{ $labels.entrypoint }}"
+          description: "5xx > 5% trong 5 phút (hiện {{ $value | humanizePercentage }})."
+
+      - alert: TraefikHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(traefik_entrypoint_request_duration_seconds_bucket[5m])) by (le, entrypoint)
+          ) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Độ trễ p95 cao ở {{ $labels.entrypoint }}"
+          description: "p95 latency > 1s trong 10 phút (hiện {{ $value | printf \"%.2f\" }}s)."
+
+      - alert: TraefikServiceDown
+        expr: traefik_service_server_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.service }} không có backend UP"
+          description: "Mọi server của {{ $labels.service }} đang DOWN."
+
+  # ----------------------------------------------------------
+  # Blackbox (uptime + SSL) — chỉ có khi bật service blackbox-exporter
+  # ----------------------------------------------------------
+  - name: blackbox
+    rules:
+      - alert: BlackboxProbeFailed
+        expr: probe_success == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Probe thất bại: {{ $labels.instance }}"
+          description: "Blackbox không probe được {{ $labels.instance }} > 2 phút (site down / lỗi route)."
+
+      - alert: SSLCertExpiringSoon
+        expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 14
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Cert sắp hết hạn: {{ $labels.instance }}"
+          description: "Chứng chỉ TLS của {{ $labels.instance }} còn < 14 ngày ({{ $value | printf \"%.0f\" }} ngày)."
+
+      - alert: SSLCertExpired
+        expr: probe_ssl_earliest_cert_expiry - time() <= 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Cert ĐÃ hết hạn: {{ $labels.instance }}"
+          description: "Chứng chỉ TLS của {{ $labels.instance }} đã hết hạn — khách gặp lỗi bảo mật."

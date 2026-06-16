@@ -17,6 +17,8 @@ truy cập nội bộ qua network `monitoring`.
       - "--storage.tsdb.retention.time=30d"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - ./prometheus/targets:/etc/prometheus/targets:ro
       - prometheus-data:/prometheus
     networks:
       - proxy        # để Traefik định tuyến tới

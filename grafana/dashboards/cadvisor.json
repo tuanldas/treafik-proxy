@@ -44,7 +44,7 @@
       "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
       "fieldConfig": { "defaults": { "unit": "bytes" } },
       "targets": [
-        { "expr": "sum(container_memory_usage_bytes{name!=\"\"})", "legendFormat": "RAM" }
+        { "expr": "sum(container_memory_working_set_bytes{name!=\"\"})", "legendFormat": "RAM" }
       ]
     },
     {
@@ -63,7 +63,7 @@
       "gridPos": { "h": 9, "w": 12, "x": 12, "y": 4 },
       "fieldConfig": { "defaults": { "unit": "bytes" } },
       "targets": [
-        { "expr": "sum by (name) (container_memory_usage_bytes{name!=\"\"})", "legendFormat": "{{name}}" }
+        { "expr": "sum by (name) (container_memory_working_set_bytes{name!=\"\"})", "legendFormat": "{{name}}" }
       ]
     },
     {
@@ -85,6 +85,37 @@
       "targets": [
         { "expr": "sum by (name) (rate(container_network_transmit_bytes_total{name!=\"\"}[5m]))", "legendFormat": "{{name}}" }
       ]
+    },
+    {
+      "type": "timeseries", "title": "CPU throttling (tỉ lệ chu kỳ bị bóp)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 22 },
+      "fieldConfig": { "defaults": { "unit": "percentunit" } },
+      "targets": [
+        { "expr": "sum by (name) (rate(container_cpu_cfs_throttled_periods_total{name!=\"\"}[5m])) / clamp_min(sum by (name) (rate(container_cpu_cfs_periods_total{name!=\"\"}[5m])), 1)", "legendFormat": "{{name}}" }
+      ]
+    },
+    {
+      "type": "timeseries", "title": "RAM so với limit (%)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 22 },
+      "fieldConfig": { "defaults": { "unit": "percent" } },
+      "targets": [
+        { "expr": "100 * container_memory_working_set_bytes{name!=\"\"} / clamp_min(container_spec_memory_limit_bytes{name!=\"\"}, 1) and container_spec_memory_limit_bytes{name!=\"\"} > 0", "legendFormat": "{{name}}" }
+      ]
+    },
+    {
+      "type": "stat", "title": "OOM kills (1h)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 31 },
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } } },
+      "targets": [ { "expr": "sum by (name) (increase(container_oom_events_total{name!=\"\"}[1h]))", "legendFormat": "{{name}}" } ]
+    },
+    {
+      "type": "bargauge", "title": "Top-10 CPU theo container (cores)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 31 },
+      "targets": [ { "expr": "topk(10, sum by (name) (rate(container_cpu_usage_seconds_total{name!=\"\"}[5m])))", "legendFormat": "{{name}}" } ]
     }
   ]
 }

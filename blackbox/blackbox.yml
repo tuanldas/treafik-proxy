@@ -1,0 +1,37 @@
+# ============================================================
+# Blackbox exporter — module config.
+# http_2xx           : probe HTTP/HTTPS thường (dev / SSL=off).
+# http_2xx_strict_tls: bắt buộc HTTPS hợp lệ (prod / SSL=on) — đo cert.
+# setup.sh chọn module theo cờ SSL khi sinh danh sách target.
+# ============================================================
+modules:
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      method: GET
+      follow_redirects: true
+      fail_if_not_ssl: false
+      preferred_ip_protocol: "ip4"
+      ip_protocol_fallback: false
+
+  http_2xx_strict_tls:
+    prober: http
+    timeout: 5s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      method: GET
+      follow_redirects: true
+      fail_if_not_ssl: true      # probe FAIL nếu không phải HTTPS hợp lệ
+      preferred_ip_protocol: "ip4"
+
+  tcp_connect:
+    prober: tcp
+    timeout: 5s
+
+  icmp:
+    prober: icmp
+    timeout: 5s
+    icmp:
+      preferred_ip_protocol: "ip4"

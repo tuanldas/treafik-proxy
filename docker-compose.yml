@@ -1,7 +1,7 @@
 # ============================================================
 # FILE NÀY ĐƯỢC SINH TỰ ĐỘNG bởi setup.sh — ĐỪNG SỬA TAY.
 # Sửa service trong services/*.md, bật/tắt bằng cờ trong .env, rồi ./setup.sh
-# Tạo lúc: 2026-06-16 14:02:18
+# Tạo lúc: 2026-06-16 17:09:22
 # ============================================================
 
 networks:
@@ -49,6 +49,48 @@ services:
       timeout: 5s
       retries: 3
 
+  # ----- alertmanager (services/alertmanager.md) -----
+  alertmanager:
+    image: "prom/alertmanager:${ALERTMANAGER_VERSION:-v0.33.0}"
+    container_name: alertmanager
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    volumes:
+      - ./alertmanager/alertmanager.generated.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./alertmanager/data:/alertmanager
+    networks:
+      - monitoring
+
+  # ----- alloy (services/alloy.md) -----
+  alloy:
+    image: "grafana/alloy:${ALLOY_VERSION:-v1.17.0}"
+    container_name: alloy
+    restart: unless-stopped
+    command:
+      - "run"
+      - "--server.http.listen-addr=0.0.0.0:12345"
+      - "--storage.path=/var/lib/alloy/data"
+      - "/etc/alloy/config.alloy"
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - monitoring
+
+  # ----- blackbox-exporter (services/blackbox-exporter.md) -----
+  blackbox-exporter:
+    image: "prom/blackbox-exporter:${BLACKBOX_EXPORTER_VERSION:-v0.28.0}"
+    container_name: blackbox-exporter
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/blackbox_exporter/config.yml"
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    networks:
+      - monitoring
+
   # ----- cadvisor (services/cadvisor.md) -----
   cadvisor:
     image: "gcr.io/cadvisor/cadvisor:${CADVISOR_VERSION:-v0.55.1}"
@@ -59,14 +101,17 @@ services:
       - /dev/kmsg
     command:
       - "-logtostderr"
-      # cAdvisor mặc định tìm containerd ở /run/containerd/containerd.sock (system),
-      # nhưng containerd CỦA DOCKER nằm ở đây -> trỏ đúng để docker factory chạy,
-      # nhờ đó metric container có nhãn 'name'. (socket sẵn có qua mount /var/run)
-      - "-containerd=/var/run/docker/containerd/containerd.sock"
+      # Docker CE dùng containerd HỆ THỐNG ở /run/containerd/containerd.sock
+      # (kiểm chứng: `dockerd --containerd=...`). Phải trỏ ĐÚNG socket này thì
+      # docker factory mới đăng ký được -> metric container có nhãn 'name'
+      # (nếu sai, cadvisor vẫn chạy nhưng metric thiếu 'name' -> Grafana No data).
+      # Socket được mount tường minh bên dưới để đường dẫn trong container khớp.
+      - "-containerd=/run/containerd/containerd.sock"
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /run/containerd/containerd.sock:/run/containerd/containerd.sock:ro
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
@@ -96,6 +141,18 @@ services:
       - "traefik.http.routers.grafana.entrypoints=web"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
 
+  # ----- loki (services/loki.md) -----
+  loki:
+    image: "grafana/loki:${LOKI_VERSION:-3.7.2}"
+    container_name: loki
+    restart: unless-stopped
+    command: "-config.file=/etc/loki/loki-config.yml"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - ./loki/data:/loki
+    networks:
+      - monitoring
+
   # ----- node-exporter (services/node-exporter.md) -----
   node-exporter:
     image: "prom/node-exporter:${NODE_EXPORTER_VERSION:-v1.11.1}"
@@ -123,6 +180,8 @@ services:
       - "--storage.tsdb.retention.time=30d"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - ./prometheus/targets:/etc/prometheus/targets:ro
       - prometheus-data:/prometheus
     networks:
       - proxy        # để Traefik định tuyến tới

@@ -1,0 +1,196 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "tags": ["overview", "noc"],
+  "title": "00 — Overview / NOC",
+  "timezone": "browser",
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "text": "Prometheus", "value": "Prometheus" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Sống / chết",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "type": "stat",
+      "title": "node-exporter",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 5, "x": 0, "y": 1 },
+      "options": { "colorMode": "background" },
+      "fieldConfig": { "defaults": {
+        "mappings": [ { "type": "value", "options": { "0": { "text": "DOWN" }, "1": { "text": "UP" } } } ],
+        "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }
+      } },
+      "targets": [ { "expr": "up{job=\"node-exporter\"}", "legendFormat": "node" } ]
+    },
+    {
+      "type": "stat",
+      "title": "cadvisor",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 5, "x": 5, "y": 1 },
+      "options": { "colorMode": "background" },
+      "fieldConfig": { "defaults": {
+        "mappings": [ { "type": "value", "options": { "0": { "text": "DOWN" }, "1": { "text": "UP" } } } ],
+        "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }
+      } },
+      "targets": [ { "expr": "up{job=\"cadvisor\"}", "legendFormat": "cadvisor" } ]
+    },
+    {
+      "type": "stat",
+      "title": "traefik",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 5, "x": 10, "y": 1 },
+      "options": { "colorMode": "background" },
+      "fieldConfig": { "defaults": {
+        "mappings": [ { "type": "value", "options": { "0": { "text": "DOWN" }, "1": { "text": "UP" } } } ],
+        "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }
+      } },
+      "targets": [ { "expr": "up{job=\"traefik\"}", "legendFormat": "traefik" } ]
+    },
+    {
+      "type": "stat",
+      "title": "prometheus",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 5, "x": 15, "y": 1 },
+      "options": { "colorMode": "background" },
+      "fieldConfig": { "defaults": {
+        "mappings": [ { "type": "value", "options": { "0": { "text": "DOWN" }, "1": { "text": "UP" } } } ],
+        "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }
+      } },
+      "targets": [ { "expr": "up{job=\"prometheus\"}", "legendFormat": "prometheus" } ]
+    },
+    {
+      "type": "stat",
+      "title": "Container sống",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "targets": [ { "expr": "count(count by (name) (container_last_seen{name!=\"\"}))", "legendFormat": "containers" } ]
+    },
+    {
+      "type": "row",
+      "title": "Saturation host (USE)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 }
+    },
+    {
+      "type": "stat",
+      "title": "CPU (%)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 6 },
+      "fieldConfig": { "defaults": { "unit": "percent", "thresholds": { "mode": "absolute", "steps": [
+        { "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 90 } ] } } },
+      "targets": [ { "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))", "legendFormat": "CPU" } ]
+    },
+    {
+      "type": "stat",
+      "title": "RAM (%)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 6 },
+      "fieldConfig": { "defaults": { "unit": "percent", "thresholds": { "mode": "absolute", "steps": [
+        { "color": "green", "value": null }, { "color": "yellow", "value": 75 }, { "color": "red", "value": 90 } ] } } },
+      "targets": [ { "expr": "100 * (1 - avg(node_memory_MemAvailable_bytes) / avg(node_memory_MemTotal_bytes))", "legendFormat": "RAM" } ]
+    },
+    {
+      "type": "stat",
+      "title": "Disk / (%)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 6 },
+      "fieldConfig": { "defaults": { "unit": "percent", "thresholds": { "mode": "absolute", "steps": [
+        { "color": "green", "value": null }, { "color": "yellow", "value": 75 }, { "color": "red", "value": 90 } ] } } },
+      "targets": [ { "expr": "100 * (1 - avg(node_filesystem_avail_bytes{mountpoint=\"/\"}) / avg(node_filesystem_size_bytes{mountpoint=\"/\"}))", "legendFormat": "Disk" } ]
+    },
+    {
+      "type": "stat",
+      "title": "Load / core",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 6 },
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [
+        { "color": "green", "value": null }, { "color": "yellow", "value": 0.7 }, { "color": "red", "value": 1 } ] } } },
+      "targets": [ { "expr": "avg(node_load1) / count(count by (cpu) (node_cpu_seconds_total))", "legendFormat": "load/core" } ]
+    },
+    {
+      "type": "row",
+      "title": "RED Traefik",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 10 }
+    },
+    {
+      "type": "stat",
+      "title": "Request/s",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 11 },
+      "targets": [ { "expr": "sum(rate(traefik_service_requests_total[5m]))", "legendFormat": "req/s" } ]
+    },
+    {
+      "type": "stat",
+      "title": "Tỉ lệ 5xx (%)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 11 },
+      "fieldConfig": { "defaults": { "unit": "percent", "thresholds": { "mode": "absolute", "steps": [
+        { "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 5 } ] } } },
+      "targets": [ { "expr": "100 * sum(rate(traefik_service_requests_total{code=~\"5..\"}[5m])) / sum(rate(traefik_service_requests_total[5m]))", "legendFormat": "5xx %" } ]
+    },
+    {
+      "type": "stat",
+      "title": "Latency p95 (s)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 11 },
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [
+        { "color": "green", "value": null }, { "color": "yellow", "value": 0.5 }, { "color": "red", "value": 1 } ] } } },
+      "targets": [ { "expr": "histogram_quantile(0.95, sum(rate(traefik_service_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95" } ]
+    },
+    {
+      "type": "row",
+      "title": "Cảnh báo sớm (một số panel cần host Linux)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 }
+    },
+    {
+      "type": "stat",
+      "title": "Đĩa / sẽ đầy < 24h",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "mappings": [ { "type": "value", "options": { "0": { "text": "OK" }, "1": { "text": "SẮP ĐẦY" } } } ],
+        "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } } },
+      "options": { "colorMode": "background" },
+      "targets": [ { "expr": "(predict_linear(node_filesystem_avail_bytes{mountpoint=\"/\"}[6h], 24*3600) < 0) and (node_filesystem_avail_bytes{mountpoint=\"/\"} > 0)", "legendFormat": "disk" } ]
+    },
+    {
+      "type": "stat",
+      "title": "OOM (1h)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 16 },
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [
+        { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } } },
+      "targets": [ { "expr": "sum(increase(container_oom_events_total{name!=\"\"}[1h]))", "legendFormat": "oom" } ]
+    },
+    {
+      "type": "stat",
+      "title": "CPU throttle tối đa (%)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "thresholds": { "mode": "absolute", "steps": [
+        { "color": "green", "value": null }, { "color": "yellow", "value": 0.1 }, { "color": "red", "value": 0.25 } ] } } },
+      "targets": [ { "expr": "max(sum by (name) (rate(container_cpu_cfs_throttled_periods_total{name!=\"\"}[5m])) / clamp_min(sum by (name) (rate(container_cpu_cfs_periods_total{name!=\"\"}[5m])), 1))", "legendFormat": "throttle" } ]
+    },
+    {
+      "type": "stat",
+      "title": "Time drift (s)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [
+        { "color": "green", "value": null }, { "color": "red", "value": 0.05 } ] } } },
+      "targets": [ { "expr": "avg(abs(node_timex_offset_seconds))", "legendFormat": "drift" } ]
+    }
+  ]
+}

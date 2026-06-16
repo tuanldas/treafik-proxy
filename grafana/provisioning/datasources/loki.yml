@@ -1,0 +1,10 @@
+# Tự động khai báo Loki làm datasource cho Grafana (xem log cạnh metric)
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: false
+    editable: true

@@ -48,7 +48,7 @@
       },
       "targets": [
         {
-          "expr": "100 * sum(rate(traefik_service_requests_total{code=~\"5..\"}[5m])) / clamp_min(sum(rate(traefik_service_requests_total[5m])), 1)",
+          "expr": "100 * sum(rate(traefik_service_requests_total{code=~\"5..\"}[5m])) / sum(rate(traefik_service_requests_total[5m]))",
           "legendFormat": "5xx %"
         }
       ]
@@ -119,6 +119,38 @@
           "legendFormat": "p99 {{service}}"
         }
       ]
+    },
+    {
+      "type": "stat", "title": "Tỉ lệ 4xx (%)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 22 },
+      "fieldConfig": { "defaults": { "unit": "percent", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 10 }, { "color": "red", "value": 30 } ] } } },
+      "targets": [ { "expr": "100 * sum(rate(traefik_service_requests_total{code=~\"4..\"}[5m])) / sum(rate(traefik_service_requests_total[5m]))", "legendFormat": "4xx %" } ]
+    },
+    {
+      "type": "stat", "title": "Latency p99 (s)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 22 },
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 0.5 }, { "color": "red", "value": 1 } ] } } },
+      "targets": [ { "expr": "histogram_quantile(0.99, sum(rate(traefik_service_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p99" } ]
+    },
+    {
+      "type": "stat", "title": "Request đang xử lý (in-flight)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 22 },
+      "targets": [ { "expr": "sum(traefik_service_requests_in_flight)", "legendFormat": "in-flight" } ]
+    },
+    {
+      "type": "timeseries", "title": "Request/s theo router",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 26 },
+      "targets": [ { "expr": "sum by (router) (rate(traefik_router_requests_total[5m]))", "legendFormat": "{{router}}" } ]
+    },
+    {
+      "type": "timeseries", "title": "Request/s theo entrypoint",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 26 },
+      "targets": [ { "expr": "sum by (entrypoint) (rate(traefik_entrypoint_requests_total[5m]))", "legendFormat": "{{entrypoint}}" } ]
     }
   ]
 }

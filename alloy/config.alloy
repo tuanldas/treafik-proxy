@@ -1,0 +1,35 @@
+// ============================================================
+// Grafana Alloy — thu log container Docker, đẩy sang Loki.
+// Nhãn `container` đặt khớp nhãn `name` của cAdvisor (xem log+metric cùng container).
+// ============================================================
+
+// Phát hiện container Docker qua socket
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+// Làm sạch nhãn: __meta_docker_container_name có "/" đầu -> bỏ, đặt thành `container`
+discovery.relabel "docker_logs" {
+  targets = []
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+}
+
+// Thu log từ container đã phát hiện
+loki.source.docker "default" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.containers.targets
+  relabel_rules = discovery.relabel.docker_logs.rules
+  labels        = {"job" = "docker"}
+  forward_to    = [loki.write.local.receiver]
+}
+
+// Đẩy sang Loki
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

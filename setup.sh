@@ -126,6 +126,101 @@ append_service() {
   } >> "$OUT"
 }
 
+# --- Sinh cấu hình Alertmanager theo cờ ALERT_* trong .env -------
+# Ghi THẲNG secret vào file (như auth.generated.yml) -> đã .gitignore.
+# Bật/tắt kênh: ALERT_TELEGRAM / ALERT_SLACK / ALERT_EMAIL / ALERT_DISCORD.
+generate_alertmanager() {
+  is_true "$(get_flag ALERTMANAGER)" || return 0
+  local f="alertmanager/alertmanager.generated.yml"
+  local tg sk em dc
+  tg="$(get_flag ALERT_TELEGRAM)"; sk="$(get_flag ALERT_SLACK)"; em="$(get_flag ALERT_EMAIL)"; dc="$(get_flag ALERT_DISCORD)"
+  mkdir -p alertmanager/data
+  {
+    echo "# SINH TỰ ĐỘNG bởi setup.sh — ĐỪNG SỬA TAY (chứa secret kênh báo). Đã .gitignore."
+    echo "# Bật/tắt kênh: sửa ALERT_TELEGRAM/ALERT_SLACK/ALERT_EMAIL/ALERT_DISCORD trong .env rồi ./setup.sh"
+    echo "route:"
+    echo "  receiver: 'notify'"
+    echo "  group_by: ['alertname', 'instance']"
+    echo "  group_wait: 30s"
+    echo "  group_interval: 5m"
+    echo "  repeat_interval: 4h"
+    echo "  routes:"
+    echo "    - matchers: [ 'severity = \"critical\"' ]"
+    echo "      receiver: 'notify'"
+    echo "      repeat_interval: 1h"
+    echo "receivers:"
+    echo "  - name: 'notify'"
+    if is_true "$tg"; then
+      echo "    telegram_configs:"
+      echo "      - bot_token: '$(get_raw TELEGRAM_BOT_TOKEN)'"
+      echo "        chat_id: $(get_raw TELEGRAM_CHAT_ID)"
+      echo "        parse_mode: 'HTML'"
+      echo "        send_resolved: true"
+    fi
+    if is_true "$sk"; then
+      echo "    slack_configs:"
+      echo "      - api_url: '$(get_raw SLACK_WEBHOOK_URL)'"
+      echo "        send_resolved: true"
+    fi
+    if is_true "$em"; then
+      echo "    email_configs:"
+      echo "      - to: '$(get_raw SMTP_TO)'"
+      echo "        from: '$(get_raw SMTP_FROM)'"
+      echo "        smarthost: '$(get_raw SMTP_SMARTHOST)'"
+      echo "        auth_username: '$(get_raw SMTP_AUTH_USERNAME)'"
+      echo "        auth_password: '$(get_raw SMTP_AUTH_PASSWORD)'"
+      echo "        send_resolved: true"
+    fi
+    if is_true "$dc"; then
+      echo "    discord_configs:"
+      echo "      - webhook_url: '$(get_raw DISCORD_WEBHOOK_URL)'"
+      echo "        send_resolved: true"
+    fi
+    echo "inhibit_rules:"
+    echo "  - source_matchers: [ 'alertname = \"InstanceDown\"' ]"
+    echo "    target_matchers: [ 'severity = \"warning\"' ]"
+    echo "    equal: ['instance']"
+    echo "  - source_matchers: [ 'severity = \"critical\"' ]"
+    echo "    target_matchers: [ 'severity = \"warning\"' ]"
+    echo "    equal: ['alertname', 'instance']"
+  } > "$f"
+  if ! is_true "$tg" && ! is_true "$sk" && ! is_true "$em" && ! is_true "$dc"; then
+    echo "⚠️  ALERTMANAGER=true nhưng cả 4 kênh ALERT_* đều tắt — alert sẽ KHÔNG gửi đi đâu." >&2
+  else
+    echo "  🔔 alertmanager -> ${f} (telegram=${tg:-off} slack=${sk:-off} email=${em:-off} discord=${dc:-off})"
+  fi
+}
+
+# --- Sinh danh sách target Blackbox (file_sd) từ Host() trong compose ---
+# Scheme/module theo cờ SSL: SSL=true -> https + strict_tls (đo cert);
+# SSL=false -> http + http_2xx (dev/Cloudflare origin). File sinh -> .gitignore.
+# Gọi SAU khi docker-compose.yml ($OUT) đã có đủ Host().
+generate_blackbox_targets() {
+  is_true "$(get_flag BLACKBOX_EXPORTER)" || return 0
+  local f="prometheus/targets/blackbox.generated.yml"
+  local dom scheme module hosts
+  dom="$(get_raw DOMAIN)"; dom="${dom:-example.com}"
+  if is_true "$SSL_FLAG"; then scheme="https"; module="http_2xx_strict_tls"; else scheme="http"; module="http_2xx"; fi
+  mkdir -p prometheus/targets
+  hosts="$(grep -oE 'Host\(`[^`]+`\)' "$OUT" | sed -E 's/Host\(`(.*)`\)/\1/' \
+    | sed "s/\${DOMAIN[^}]*}/${dom}/g" | sort -u)"
+  {
+    echo "# SINH TỰ ĐỘNG bởi setup.sh — target Blackbox probe (từ Host() trong services)."
+    echo "# scheme=${scheme}, module=${module} (theo cờ SSL). Prometheus file_sd tự reload."
+    if [ -z "$hosts" ]; then
+      echo "[]"
+    else
+      while IFS= read -r h; do
+        [ -z "$h" ] && continue
+        echo "- targets: [\"${scheme}://${h}\"]"
+        echo "  labels: { module: ${module} }"
+      done <<< "$hosts"
+    fi
+  } > "$f"
+  local n; n="$(printf '%s\n' "$hosts" | grep -c . || true)"
+  echo "  🛰  blackbox targets -> ${f} (${n} domain, ${scheme}/${module})"
+}
+
 # --- Cờ SSL (true = Let's Encrypt, false = SSL ngoài/Cloudflare) ---
 SSL_FLAG="$(get_flag SSL)"; [ -z "$SSL_FLAG" ] && SSL_FLAG="true"
 
@@ -166,6 +261,9 @@ else
   } > "$AUTH_FILE"
   echo "  🔒 dashboard-auth: user='${DUSER}' -> ${AUTH_FILE}"
 fi
+
+# --- Sinh cấu hình Alertmanager (nếu ALERTMANAGER=true) ------
+generate_alertmanager
 
 # --- Tên network/volume (đổi được trong .env) ---------------
 PROXY_NET="$(get_flag PROXY_NETWORK)";        PROXY_NET="${PROXY_NET:-proxy}"
@@ -223,6 +321,9 @@ done
 
 echo
 echo "✅ Đã sinh ${OUT} với ${#enabled[@]} service: ${enabled[*]}"
+
+# Sinh danh sách target Blackbox (cần $OUT đã có đủ Host())
+generate_blackbox_targets
 
 # --- Nhắc trỏ DNS -------------------------------------------
 DOMAIN_VAL="$(get_raw DOMAIN)"; DOMAIN_VAL="${DOMAIN_VAL:-example.com}"

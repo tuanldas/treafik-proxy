@@ -5,6 +5,16 @@ acme.json
 # Basic-auth dashboard sinh tự động (chứa hash mật khẩu)
 traefik/dynamic/auth.generated.yml
 
+# Alertmanager config sinh tự động (chứa secret kênh thông báo) + dữ liệu
+alertmanager/alertmanager.generated.yml
+alertmanager/data/
+
+# Blackbox target list sinh tự động bởi setup.sh
+prometheus/targets/blackbox.generated.yml
+
+# Dữ liệu Loki (bind-mount)
+loki/data/
+
 # Biến môi trường thật (chứa mật khẩu)
 .env
 

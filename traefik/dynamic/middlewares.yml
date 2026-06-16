@@ -1,0 +1,34 @@
+# ============================================================
+# Cấu hình động — middlewares dùng lại cho nhiều service
+# Traefik tự nạp lại khi file thay đổi (không cần restart)
+# ============================================================
+http:
+  middlewares:
+
+    # LƯU Ý: middleware "dashboard-auth" được SINH TỰ ĐỘNG bởi setup.sh
+    # vào file traefik/dynamic/auth.generated.yml (hash từ TRAEFIK_DASHBOARD_*
+    # trong .env). Không khai báo ở đây.
+
+    # --- Security headers cơ bản ----------------------------
+    security-headers:
+      headers:
+        frameDeny: true
+        contentTypeNosniff: true
+        browserXssFilter: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+
+    # --- Rate limit (chống spam request) --------------------
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+
+    # --- Gộp sẵn: headers + rate limit ----------------------
+    default-chain:
+      chain:
+        middlewares:
+          - security-headers
+          - rate-limit

@@ -1,0 +1,193 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "tags": ["host", "node-exporter"],
+  "title": "Node / Host",
+  "timezone": "browser",
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "text": "Prometheus", "value": "Prometheus" }
+      },
+      {
+        "name": "instance",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "query": "label_values(node_uname_info, instance)",
+        "refresh": 2,
+        "includeAll": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "CPU sử dụng (%)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 70 },
+            { "color": "red", "value": 90 }
+          ] }
+        }
+      },
+      "targets": [
+        { "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\",instance=\"$instance\"}[5m])) * 100)", "legendFormat": "CPU" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "RAM sử dụng (%)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 75 },
+            { "color": "red", "value": 90 }
+          ] }
+        }
+      },
+      "targets": [
+        { "expr": "100 * (1 - (node_memory_MemAvailable_bytes{instance=\"$instance\"} / node_memory_MemTotal_bytes{instance=\"$instance\"}))", "legendFormat": "RAM" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Disk / dùng (%)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 75 },
+            { "color": "red", "value": 90 }
+          ] }
+        }
+      },
+      "targets": [
+        { "expr": "100 * (1 - (node_filesystem_avail_bytes{instance=\"$instance\",mountpoint=\"/host\"} / node_filesystem_size_bytes{instance=\"$instance\",mountpoint=\"/host\"}))", "legendFormat": "Disk" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Load (1m)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        { "expr": "node_load1{instance=\"$instance\"}", "legendFormat": "load1" }
+      ]
+    },
+
+    {
+      "type": "stat",
+      "title": "RAM đã dùng",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 4 },
+      "fieldConfig": { "defaults": { "unit": "bytes", "color": { "mode": "fixed", "fixedColor": "blue" } } },
+      "targets": [
+        { "expr": "node_memory_MemTotal_bytes{instance=\"$instance\"} - node_memory_MemAvailable_bytes{instance=\"$instance\"}", "legendFormat": "RAM dùng" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "RAM tổng",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 4 },
+      "fieldConfig": { "defaults": { "unit": "bytes", "color": { "mode": "fixed", "fixedColor": "text" } } },
+      "targets": [
+        { "expr": "node_memory_MemTotal_bytes{instance=\"$instance\"}", "legendFormat": "RAM tổng" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Disk đã dùng",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 4 },
+      "fieldConfig": { "defaults": { "unit": "bytes", "color": { "mode": "fixed", "fixedColor": "blue" } } },
+      "targets": [
+        { "expr": "node_filesystem_size_bytes{instance=\"$instance\",mountpoint=\"/host\"} - node_filesystem_avail_bytes{instance=\"$instance\",mountpoint=\"/host\"}", "legendFormat": "Disk dùng" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Disk tổng",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 4 },
+      "fieldConfig": { "defaults": { "unit": "bytes", "color": { "mode": "fixed", "fixedColor": "text" } } },
+      "targets": [
+        { "expr": "node_filesystem_size_bytes{instance=\"$instance\",mountpoint=\"/host\"}", "legendFormat": "Disk tổng" }
+      ]
+    },
+
+    {
+      "type": "timeseries",
+      "title": "CPU theo mode (%)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "percent" } },
+      "targets": [
+        { "expr": "avg by (mode) (rate(node_cpu_seconds_total{instance=\"$instance\",mode!=\"idle\"}[5m])) * 100", "legendFormat": "{{mode}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Bộ nhớ: tổng vs đã dùng (bytes)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "targets": [
+        { "expr": "node_memory_MemTotal_bytes{instance=\"$instance\"}", "legendFormat": "tổng" },
+        { "expr": "node_memory_MemTotal_bytes{instance=\"$instance\"} - node_memory_MemAvailable_bytes{instance=\"$instance\"}", "legendFormat": "đã dùng" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Disk: tổng vs đã dùng (bytes)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "targets": [
+        { "expr": "node_filesystem_size_bytes{instance=\"$instance\",mountpoint=\"/host\"}", "legendFormat": "tổng" },
+        { "expr": "node_filesystem_size_bytes{instance=\"$instance\",mountpoint=\"/host\"} - node_filesystem_avail_bytes{instance=\"$instance\",mountpoint=\"/host\"}", "legendFormat": "đã dùng" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Network (bytes/s)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "Bps" } },
+      "targets": [
+        { "expr": "rate(node_network_receive_bytes_total{instance=\"$instance\",device!~\"lo|veth.*|docker.*|br-.*\"}[5m])", "legendFormat": "rx {{device}}" },
+        { "expr": "rate(node_network_transmit_bytes_total{instance=\"$instance\",device!~\"lo|veth.*|docker.*|br-.*\"}[5m])", "legendFormat": "tx {{device}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Disk I/O (bytes/s)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "fieldConfig": { "defaults": { "unit": "Bps" } },
+      "targets": [
+        { "expr": "rate(node_disk_read_bytes_total{instance=\"$instance\"}[5m])", "legendFormat": "read {{device}}" },
+        { "expr": "rate(node_disk_written_bytes_total{instance=\"$instance\"}[5m])", "legendFormat": "write {{device}}" }
+      ]
+    }
+  ]
+}

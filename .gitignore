@@ -1,0 +1,20 @@
+# Chứng chỉ Let's Encrypt — KHÔNG commit
+acme/
+acme.json
+
+# Basic-auth dashboard sinh tự động (chứa hash mật khẩu)
+traefik/dynamic/auth.generated.yml
+
+# Biến môi trường thật (chứa mật khẩu)
+.env
+
+# IDE
+.idea/
+
+# docker-compose.yml được sinh tự động bởi setup.sh
+# (bỏ comment nếu KHÔNG muốn commit file sinh ra)
+# docker-compose.yml
+
+# Dữ liệu volume nếu mount ra local
+grafana-data/
+prometheus-data/

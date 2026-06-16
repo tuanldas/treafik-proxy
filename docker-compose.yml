@@ -1,0 +1,144 @@
+# ============================================================
+# FILE NÀY ĐƯỢC SINH TỰ ĐỘNG bởi setup.sh — ĐỪNG SỬA TAY.
+# Sửa service trong services/*.md, bật/tắt bằng cờ trong .env, rồi ./setup.sh
+# Tạo lúc: 2026-06-16 02:08:18
+# ============================================================
+
+networks:
+  proxy:
+    name: ${PROXY_NETWORK:-proxy}
+  monitoring:
+    name: ${MONITORING_NETWORK:-monitoring}
+
+volumes:
+  prometheus-data:
+    name: ${PROMETHEUS_VOLUME:-prometheus-data}
+  grafana-data:
+    name: ${GRAFANA_VOLUME:-grafana-data}
+
+services:
+  # ----- traefik (services/traefik.md) -----
+  traefik:
+    image: "traefik:${TRAEFIK_VERSION:-v3.7.5}"
+    container_name: traefik
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - TZ=${TZ:-Asia/Ho_Chi_Minh}
+    volumes:
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      - ./acme:/acme
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - proxy
+      - monitoring
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.${DOMAIN}`)"
+      - "traefik.http.routers.dashboard.entrypoints=web"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.dashboard.middlewares=dashboard-auth@file"
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ----- cadvisor (services/cadvisor.md) -----
+  cadvisor:
+    image: "gcr.io/cadvisor/cadvisor:${CADVISOR_VERSION:-v0.55.1}"
+    container_name: cadvisor
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - monitoring
+
+  # ----- grafana (services/grafana.md) -----
+  grafana:
+    image: "grafana/grafana:${GRAFANA_VERSION:-13.0.2}"
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-changeme}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - TZ=${TZ:-Asia/Ho_Chi_Minh}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - proxy
+      - monitoring
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.${DOMAIN}`)"
+      - "traefik.http.routers.grafana.entrypoints=web"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+
+  # ----- node-exporter (services/node-exporter.md) -----
+  node-exporter:
+    image: "prom/node-exporter:${NODE_EXPORTER_VERSION:-v1.11.1}"
+    container_name: node-exporter
+    restart: unless-stopped
+    command:
+      - "--path.rootfs=/host"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+    pid: host
+    volumes:
+      # Lưu ý: KHÔNG dùng "ro,rslave" vì Docker Desktop (macOS/Windows) không hỗ
+      # trợ mount propagation -> lỗi "not a shared or slave mount". Chỉ "ro" chạy
+      # được trên cả Docker Desktop lẫn Linux.
+      - /:/host:ro
+    networks:
+      - monitoring
+
+  # ----- prometheus (services/prometheus.md) -----
+  prometheus:
+    image: "prom/prometheus:${PROMETHEUS_VERSION:-v3.12.0}"
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=30d"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - proxy        # để Traefik định tuyến tới
+      - monitoring
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prometheus.rule=Host(`prometheus.${DOMAIN}`)"
+      - "traefik.http.routers.prometheus.entrypoints=web"
+      - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+      # Prometheus không có đăng nhập -> bắt buộc bảo vệ bằng basic-auth
+      - "traefik.http.routers.prometheus.middlewares=dashboard-auth@file"
+
+  # ----- whoami (services/whoami.md) -----
+  whoami:
+    image: traefik/whoami
+    container_name: whoami
+    restart: unless-stopped
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.whoami.rule=Host(`whoami.${DOMAIN}`)"
+      - "traefik.http.routers.whoami.entrypoints=web"
+      - "traefik.http.services.whoami.loadbalancer.server.port=80"
+      - "traefik.http.routers.whoami.middlewares=default-chain@file"
+

@@ -1,0 +1,73 @@
+# ============================================================
+# Traefik - Static configuration
+# Tài liệu: https://doc.traefik.io/traefik/
+# ============================================================
+
+# --- API & Dashboard ----------------------------------------
+api:
+  dashboard: true
+  # insecure: true  # KHÔNG bật ở production. Dashboard đã được expose
+  #                 # an toàn qua router + basic-auth trong docker-compose.
+
+# --- Điểm vào (cổng) ----------------------------------------
+entryPoints:
+  web:
+    address: ":80"
+    # Khối redirect HTTP->HTTPS dưới đây được setup.sh TỰ BẬT/TẮT theo cờ SSL
+    # trong .env (giữa 2 mốc >>> / <<<). Đừng sửa 2 dòng mốc.
+    # >>> SSL_REDIRECT
+    # http:
+      # redirections:
+        # entryPoint:
+          # to: websecure
+          # scheme: https
+    # <<< SSL_REDIRECT
+  websecure:
+    address: ":443"
+  # Cổng metrics nội bộ cho Prometheus (không expose ra ngoài).
+  metrics:
+    address: ":8082"
+
+# --- Provider: Docker ---------------------------------------
+providers:
+  docker:
+    # Chỉ expose container có label "traefik.enable=true"
+    exposedByDefault: false
+    network: proxy  # PROXY_NET (setup.sh tự cập nhật theo PROXY_NETWORK trong .env)
+    watch: true
+  # Cấu hình động (middlewares, tls...) đọc từ thư mục dynamic
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+# --- Let's Encrypt (HTTP challenge) -------------------------
+# Có thể TẮT phần này nếu bạn dùng SSL của Cloudflare:
+#   1. Xoá/comment khối certificatesResolvers bên dưới
+#   2. Bỏ các label "...tls.certresolver=le" ở mỗi service
+#   3. (Tuỳ chọn) dùng Cloudflare "Full" + origin cert
+certificatesResolvers:
+  le:
+    acme:
+      email: "admin@example.com"   # <-- ĐỔI email của bạn
+      storage: /acme/acme.json
+      httpChallenge:
+        entryPoint: web
+      # Khi test nên bật caServer staging để tránh bị giới hạn
+      # số lần xin cert của Let's Encrypt:
+      # caServer: https://acme-staging-v02.api.letsencrypt.org/directory
+
+# --- Metrics cho Prometheus ---------------------------------
+metrics:
+  prometheus:
+    entryPoint: metrics
+    addEntryPointsLabels: true
+    addServicesLabels: true
+    addRoutersLabels: true
+
+# --- Log ----------------------------------------------------
+log:
+  level: INFO          # DEBUG khi cần soi lỗi
+accessLog: {}          # bật access log (stdout)
+
+# --- Ping (healthcheck) -------------------------------------
+ping: {}

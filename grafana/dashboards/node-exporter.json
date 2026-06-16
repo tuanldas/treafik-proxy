@@ -81,7 +81,7 @@
         }
       },
       "targets": [
-        { "expr": "100 * (1 - (node_filesystem_avail_bytes{instance=\"$instance\",mountpoint=\"/host\"} / node_filesystem_size_bytes{instance=\"$instance\",mountpoint=\"/host\"}))", "legendFormat": "Disk" }
+        { "expr": "100 * (1 - (node_filesystem_avail_bytes{instance=\"$instance\",mountpoint=\"/\"} / node_filesystem_size_bytes{instance=\"$instance\",mountpoint=\"/\"}))", "legendFormat": "Disk" }
       ]
     },
     {
@@ -121,7 +121,7 @@
       "gridPos": { "h": 4, "w": 6, "x": 12, "y": 4 },
       "fieldConfig": { "defaults": { "unit": "bytes", "color": { "mode": "fixed", "fixedColor": "blue" } } },
       "targets": [
-        { "expr": "node_filesystem_size_bytes{instance=\"$instance\",mountpoint=\"/host\"} - node_filesystem_avail_bytes{instance=\"$instance\",mountpoint=\"/host\"}", "legendFormat": "Disk dùng" }
+        { "expr": "node_filesystem_size_bytes{instance=\"$instance\",mountpoint=\"/\"} - node_filesystem_avail_bytes{instance=\"$instance\",mountpoint=\"/\"}", "legendFormat": "Disk dùng" }
       ]
     },
     {
@@ -131,7 +131,7 @@
       "gridPos": { "h": 4, "w": 6, "x": 18, "y": 4 },
       "fieldConfig": { "defaults": { "unit": "bytes", "color": { "mode": "fixed", "fixedColor": "text" } } },
       "targets": [
-        { "expr": "node_filesystem_size_bytes{instance=\"$instance\",mountpoint=\"/host\"}", "legendFormat": "Disk tổng" }
+        { "expr": "node_filesystem_size_bytes{instance=\"$instance\",mountpoint=\"/\"}", "legendFormat": "Disk tổng" }
       ]
     },
 
@@ -163,8 +163,8 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
       "fieldConfig": { "defaults": { "unit": "bytes" } },
       "targets": [
-        { "expr": "node_filesystem_size_bytes{instance=\"$instance\",mountpoint=\"/host\"}", "legendFormat": "tổng" },
-        { "expr": "node_filesystem_size_bytes{instance=\"$instance\",mountpoint=\"/host\"} - node_filesystem_avail_bytes{instance=\"$instance\",mountpoint=\"/host\"}", "legendFormat": "đã dùng" }
+        { "expr": "node_filesystem_size_bytes{instance=\"$instance\",mountpoint=\"/\"}", "legendFormat": "tổng" },
+        { "expr": "node_filesystem_size_bytes{instance=\"$instance\",mountpoint=\"/\"} - node_filesystem_avail_bytes{instance=\"$instance\",mountpoint=\"/\"}", "legendFormat": "đã dùng" }
       ]
     },
     {

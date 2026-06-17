@@ -156,6 +156,12 @@ generate_alertmanager() {
       echo "        chat_id: $(get_raw TELEGRAM_CHAT_ID)"
       echo "        parse_mode: 'HTML'"
       echo "        send_resolved: true"
+      echo "        # Template gọn (chỉ summary) — tránh vượt 4096 ký tự của Telegram khi group nhiều alert"
+      echo "        message: |-"
+      echo "          <b>{{ .Alerts.Firing | len }} đang lỗi / {{ .Alerts.Resolved | len }} đã hết</b>"
+      echo "          {{ range \$i, \$a := .Alerts }}{{ if lt \$i 30 }}"
+      echo "          {{ if eq \$a.Status \"firing\" }}🔥{{ else }}✅{{ end }} <b>{{ \$a.Labels.alertname }}</b>{{ if \$a.Labels.instance }} ({{ \$a.Labels.instance }}){{ end }}: {{ \$a.Annotations.summary }}{{ end }}{{ end }}"
+      echo "          {{ if gt (len .Alerts) 30 }}… còn nhiều alert nữa — xem Grafana/Alertmanager{{ end }}"
     fi
     if is_true "$sk"; then
       echo "    slack_configs:"
@@ -175,6 +181,12 @@ generate_alertmanager() {
       echo "    discord_configs:"
       echo "      - webhook_url: '$(get_raw DISCORD_WEBHOOK_URL)'"
       echo "        send_resolved: true"
+      echo "        # Discord giới hạn 2000 ký tự content -> template gọn + cap 20 alert (Markdown)"
+      echo "        title: '{{ .Alerts.Firing | len }} đang lỗi / {{ .Alerts.Resolved | len }} đã hết'"
+      echo "        message: |-"
+      echo "          {{ range \$i, \$a := .Alerts }}{{ if lt \$i 20 }}"
+      echo "          {{ if eq \$a.Status \"firing\" }}🔥{{ else }}✅{{ end }} **{{ \$a.Labels.alertname }}**{{ if \$a.Labels.instance }} ({{ \$a.Labels.instance }}){{ end }}: {{ \$a.Annotations.summary }}{{ end }}{{ end }}"
+      echo "          {{ if gt (len .Alerts) 20 }}… còn nhiều alert nữa — xem Grafana{{ end }}"
     fi
     echo "inhibit_rules:"
     echo "  - source_matchers: [ 'alertname = \"InstanceDown\"' ]"
